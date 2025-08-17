@@ -2,21 +2,18 @@
 import streamlit as st
 from fpdf import FPDF
 from datetime import date
-import json
-from io import BytesIO
 
-APP_TITLE = "OMEC Habit Tracker - v0.3 (PDF only)"
+APP_TITLE = "OMEC Habit Tracker - v0.3.1 (PDF only)"
 DEFAULT_TASKS = ["Stretching", "German Lessons", "OMEC Designs", "Paint Bathroom"]
 
-# ---------------- UI THEME (OMEC style, ASCII-safe) ----------------
 st.set_page_config(page_title=APP_TITLE, layout="centered")
 
-OMEC_PRIMARY = "#0EA5A1"  # teal-ish
-OMEC_BG = "#0B1620"       # deep navy
-OMEC_CARD = "#111827"     # dark card
-OMEC_TEXT = "#E5E7EB"     # light text
+OMEC_PRIMARY = "#0EA5A1"
+OMEC_BG = "#0B1620"
+OMEC_CARD = "#111827"
+OMEC_TEXT = "#E5E7EB"
 
-css = f"""
+st.markdown(f"""
 <style>
   .stApp {{
     background-color: {OMEC_BG};
@@ -44,64 +41,37 @@ css = f"""
     font-size: 0.9rem;
   }}
 </style>
-"""
-st.markdown(css, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# ---------------- Session state ----------------
 if "tasks" not in st.session_state:
     st.session_state.tasks = DEFAULT_TASKS.copy()
 
-# ---------------- Header ----------------
-st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.3 - PDF export - No data stored</div></div>", unsafe_allow_html=True)
+st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.3.1 - PDF export - No data stored</div></div>", unsafe_allow_html=True)
 st.write("")
 
-# ---------------- Task Manager ----------------
 with st.container():
     st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
     st.subheader("Task Manager")
-    st.caption("Add/edit your own tasks. Import/export presets to reuse later. (We don't store anything.)")
+    st.caption("Add or edit your tasks here. This app doesn't store anything; your PDF is your record.")
 
-    colA, colB = st.columns([2,1])
+    raw_tasks = st.text_area("Tasks (one per line)", value="\n".join(st.session_state.tasks), height=160)
+    colA, colB = st.columns([3,1])
     with colA:
-        raw_tasks = st.text_area("Tasks (one per line)", value="\n".join(st.session_state.tasks), height=140)
-    with colB:
         new_task = st.text_input("Quick add")
+    with colB:
         if st.button("Add"):
-            t = new_task.strip()
+            t = (new_task or "").strip()
             if t:
                 lines = [x.strip() for x in raw_tasks.splitlines() if x.strip()]
                 lines.append(t)
-                raw_tasks = "\n".join(sorted(set(lines), key=lambda x: lines.index(x)))
-                st.session_state.tasks = [x for x in raw_tasks.splitlines() if x.strip()]
+                raw_tasks = "\n".join(lines)
                 st.success(f"Added: {t}")
-                st.rerun()
-
-        if st.button("Apply edits"):
-            st.session_state.tasks = [x.strip() for x in raw_tasks.splitlines() if x.strip()]
-            st.success("Tasks updated.")
-
-    # Import / Export presets
-    c1, c2 = st.columns(2)
-    with c1:
-        up = st.file_uploader("Import preset (.json)", type=["json"])
-        if up is not None:
-            try:
-                data = json.load(up)
-                if isinstance(data, dict) and "tasks" in data and isinstance(data["tasks"], list):
-                    st.session_state.tasks = [str(x) for x in data["tasks"] if str(x).strip()]
-                    st.success("Preset loaded.")
-                    st.rerun()
-                else:
-                    st.error("Invalid preset format. Expecting { 'tasks': [ ... ] }")
-            except Exception as e:
-                st.error(f"Could not read preset: {e}")
-    with c2:
-        preset = json.dumps({"tasks": st.session_state.tasks}, indent=2)
-        st.download_button("Export preset (.json)", data=preset, file_name="OMEC_tasks_preset.json", mime="application/json")
-
+                st.experimental_rerun()
+    if st.button("Apply edits"):
+        st.session_state.tasks = [x.strip() for x in raw_tasks.splitlines() if x.strip()]
+        st.success("Tasks updated.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------- Daily Check-in ----------------
 with st.container():
     st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
     st.subheader("Daily Check-in")
@@ -112,7 +82,7 @@ with st.container():
         st.markdown("<span class='omec-pill'>No autosave</span><span class='omec-pill'>Export to PDF</span>", unsafe_allow_html=True)
 
     checks = {}
-    if len(st.session_state.tasks) == 0:
+    if not st.session_state.tasks:
         st.info("No tasks. Add tasks above to start tracking.")
     else:
         grid_cols = st.columns(2)
@@ -123,58 +93,45 @@ with st.container():
     notes = st.text_area("Notes (optional)", placeholder="Wins / obstacles / quick notes...")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------- PDF Generation ----------------
 class HabitPDF(FPDF):
     def header(self):
-        self.set_fill_color(14,165,161)
-        self.rect(0, 0, 210, 18, 'F')
-        self.set_text_color(255,255,255)
+        try:
+            self.image("logo.png", x=10, y=6, w=28)
+        except Exception:
+            pass
+        self.set_xy(42, 8)
         self.set_font("Helvetica", "B", 14)
-        self.set_xy(10, 5)
-        self.cell(0, 8, "OMEC Habit Tracker - v0.3", 0, 1, "L")
+        self.set_text_color(31,41,55)
+        self.cell(0, 8, "OMEC Habit Tracker - v0.3.1", 0, 1, "L")
+        self.set_draw_color(14,165,161)
+        self.set_line_width(0.8)
+        self.line(10, 18, 200, 18)
 
     def footer(self):
         self.set_y(-15)
-        self.set_text_color(150,150,150)
+        self.set_text_color(120,120,120)
         self.set_font("Helvetica", "", 9)
         self.cell(0, 10, "Generated by OMEC Habit Tracker - file is your record (no data stored)", 0, 0, "C")
 
 def sanitize_ascii(text: str) -> str:
-    replacements = {
-        "—": "-",
-        "–": "-",
-        "✅": "",
-        "☑": "[x]",
-        "☐": "[ ]",
-        "•": "-",
-        "...": "...",
-        "’": "'",
-        "“": '"',
-        "”": '"'
-    }
+    replacements = {"—":"-","–":"-","✅":"","☑":"[x]","☐":"[ ]","•":"-","…":"...","’":"'", "“":'"',"”":'"'}
     for k,v in replacements.items():
         text = text.replace(k,v)
-    return text.encode("latin-1", "ignore").decode("latin-1")
+    return text.encode("latin-1","ignore").decode("latin-1")
 
 def generate_pdf(d: date, checks: dict, notes: str) -> bytes:
     pdf = HabitPDF()
     pdf.set_auto_page_break(auto=True, margin=16)
     pdf.add_page()
-
-    # Title
     pdf.set_text_color(31,41,55)
     pdf.set_xy(10, 24)
     pdf.set_font("Helvetica", "B", 16)
     pdf.cell(0, 10, sanitize_ascii(f"Daily Log - {d.isoformat()}"), ln=1)
-
-    # Checklist
     pdf.set_font("Helvetica", "", 12)
     pdf.ln(2)
     for task, done in checks.items():
         box = "[x]" if done else "[ ]"
         pdf.cell(0, 8, sanitize_ascii(f"{box}  {task}"), ln=1)
-
-    # Notes
     pdf.ln(4)
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 8, "Notes:", ln=1)
@@ -187,15 +144,12 @@ def generate_pdf(d: date, checks: dict, notes: str) -> bytes:
         pdf.set_text_color(120,120,120)
         pdf.cell(0, 6, "-", ln=1)
         pdf.set_text_color(31,41,55)
-
-    # Summary footer
     pdf.ln(6)
     done_count = sum(1 for v in checks.values() if v)
     total = max(1, len(checks))
     pct = int(done_count * 100 / total) if total > 0 else 0
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 8, sanitize_ascii(f"Completion: {done_count}/{total} tasks - {pct}%"), ln=1)
-
     return pdf.output(dest="S").encode("latin-1")
 
 st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
@@ -209,4 +163,4 @@ if st.button("Generate PDF"):
         st.success("PDF ready. Save it wherever you want. No data was stored.")
 st.markdown("</div>", unsafe_allow_html=True)
 
-st.caption("Tip: Keep your PDFs and task presets in organized folders, e.g., OMEC/Habits/2025-08.")
+st.caption("Tip: Keep your PDFs in a folder per month, e.g., OMEC/Habits/2025-08.")

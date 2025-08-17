@@ -1,133 +1,160 @@
 
 import streamlit as st
-import pandas as pd
-from datetime import date, datetime, timedelta
-from pathlib import Path
+from fpdf import FPDF
+from datetime import date
 
-APP_TITLE = "✅ Daily Habit Tracker — v0.1"
-DATA_FILE = Path("progress.csv")
+APP_TITLE = "OMEC ✅ Habit Tracker — v0.2 (PDF only)"
+DEFAULT_TASKS = ["Stretching", "German Lessons", "OMEC Designs", "Paint Bathroom"]
 
-DEFAULT_TASKS = [
-    "Stretching",
-    "German Lessons",
-    "OMEC Designs",
-    "Paint Bathroom"
-]
+# ---------------- UI THEME (OMEC style) ----------------
+st.set_page_config(page_title=APP_TITLE, layout="centered", page_icon="✅")
 
-st.set_page_config(page_title=APP_TITLE, layout="wide")
-st.title(APP_TITLE)
-st.caption("Keep it simple: tick what you did today. Build streaks. Review weekly.")
+OMEC_PRIMARY = "#0EA5A1"  # teal-ish
+OMEC_ACCENT = "#1F2937"   # slate
+OMEC_BG = "#0B1620"       # deep navy
+OMEC_CARD = "#111827"     # dark card
+OMEC_TEXT = "#E5E7EB"     # light text
 
-# ---------- Load / init data ----------
-if DATA_FILE.exists():
-    df = pd.read_csv(DATA_FILE, parse_dates=["date"])
-    df["date"] = df["date"].dt.date
-else:
-    df = pd.DataFrame(columns=["date"] + DEFAULT_TASKS + ["notes"])
+css = f"""
+<style>
+  .main {{
+    background: radial-gradient(1000px 600px at top left, rgba(14,165,161,0.06), transparent 60%), 
+                radial-gradient(800px 500px at bottom right, rgba(14,165,161,0.05), transparent 60%);
+  }}
+  .stApp {{
+    background-color: {OMEC_BG};
+    color: {OMEC_TEXT};
+  }}
+  .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
+    color: {OMEC_TEXT} !important;
+  }}
+  .omec-card {{
+    background: {OMEC_CARD};
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 1.2rem 1.2rem;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.35);
+  }}
+  .omec-pill {{
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: {OMEC_PRIMARY}22;
+    border: 1px solid {OMEC_PRIMARY}66;
+    color: {OMEC_TEXT};
+    font-size: 0.85rem;
+    margin-right: 8px;
+  }}
+  .small {{
+    opacity: 0.8;
+    font-size: 0.9rem;
+  }}
+  .accent {{
+    color: {OMEC_PRIMARY};
+    font-weight: 600;
+  }}
+</style>
+"""
+st.markdown(css, unsafe_allow_html=True)
 
-# ---------- Sidebar: settings ----------
-st.sidebar.header("⚙️ Settings")
-tasks = st.sidebar.multiselect("Tracked tasks", DEFAULT_TASKS, default=DEFAULT_TASKS)
-if set(tasks) != set(DEFAULT_TASKS):
-    # Ensure df has all selected columns
-    for t in tasks:
-        if t not in df.columns:
-            df[t] = False
+# ---------------- Header ----------------
+st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.2 • PDF export • No data stored</div></div>", unsafe_allow_html=True)
+st.write("")
 
-st.sidebar.markdown("---")
-st.sidebar.write("Data file:", str(DATA_FILE.resolve()))
+# ---------------- Settings ----------------
+with st.container():
+    st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
+    st.subheader("Settings")
+    chosen_tasks = st.multiselect("Tracked tasks", DEFAULT_TASKS, default=DEFAULT_TASKS, help="Select what you want to log today.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------- Today's check-in ----------
-col1, col2 = st.columns([1,2])
-with col1:
-    today = st.date_input("Pick a day to log", value=date.today())
-with col2:
-    st.markdown(" ")
+# ---------------- Daily Check-in ----------------
+with st.container():
+    st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
+    st.subheader("Daily Check-in")
+    col1, col2 = st.columns([1,2])
+    with col1:
+        selected_date = st.date_input("Date", value=date.today())
+    with col2:
+        st.markdown("<span class='omec-pill'>No autosave</span><span class='omec-pill'>Export to PDF</span>", unsafe_allow_html=True)
 
-st.subheader("🗒️ Check-in")
-check_cols = st.columns(len(tasks))
-checked = {}
-for i, t in enumerate(tasks):
-    with check_cols[i]:
-        checked[t] = st.checkbox(t, value=False, key=f"chk_{t}")
+    checks = {}
+    grid_cols = st.columns(2)
+    for i, task in enumerate(chosen_tasks):
+        with grid_cols[i % 2]:
+            checks[task] = st.checkbox(task, value=False, key=f"chk_{task}")
 
-notes = st.text_area("Notes (optional)", placeholder="How did it go? Wins / obstacles / quick thoughts…")
+    notes = st.text_area("Notes (optional)", placeholder="Wins / obstacles / quick notes…")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-if st.button("💾 Save today"):
-    # Upsert for the selected date
-    row = {"date": today, **{t: bool(checked.get(t, False)) for t in tasks}, "notes": notes}
-    # Remove existing entry for that date
-    df = df[df["date"] != today]
-    # Append and sort
-    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-    df = df.sort_values("date")
-    df.to_csv(DATA_FILE, index=False)
-    st.success(f"Saved your check-in for {today}.")
-    st.rerun()
+# ---------------- PDF Generation ----------------
+class HabitPDF(FPDF):
+    def header(self):
+        # Header bar
+        self.set_fill_color(14,165,161)  # teal
+        self.rect(0, 0, 210, 18, 'F')
+        self.set_text_color(255,255,255)
+        self.set_font("Helvetica", "B", 14)
+        self.set_xy(10, 5)
+        self.cell(0, 8, "OMEC Habit Tracker — v0.2", 0, 1, "L")
 
-# ---------- Weekly summary ----------
-st.markdown("---")
-st.subheader("📆 Weekly Summary")
+    def footer(self):
+        self.set_y(-15)
+        self.set_text_color(150,150,150)
+        self.set_font("Helvetica", "", 9)
+        self.cell(0, 10, "Generated by OMEC Habit Tracker • This file is your record (no data stored)", 0, 0, "C")
 
-if not df.empty:
-    # Determine the current week (Mon-Sun)
-    ref = today if 'today' in locals() else date.today()
-    start_of_week = ref - timedelta(days=ref.weekday())  # Monday
-    end_of_week = start_of_week + timedelta(days=6)
+def generate_pdf(d: date, checks: dict, notes: str) -> bytes:
+    pdf = HabitPDF()
+    pdf.set_auto_page_break(auto=True, margin=16)
+    pdf.add_page()
 
-    week_df = df[(df["date"] >= start_of_week) & (df["date"] <= end_of_week)].copy()
+    # Title block
+    pdf.set_text_color(31,41,55)  # slate text
+    pdf.set_xy(10, 24)
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, f"Daily Log — {d.isoformat()}", ln=1)
 
-    if week_df.empty:
-        st.info("No entries for this week yet. Log something above to start your streaks!")
+    # Checklist
+    pdf.set_font("Helvetica", "", 12)
+    pdf.ln(2)
+    for task, done in checks.items():
+        box = "☑" if done else "☐"
+        pdf.cell(0, 8, f"{box}  {task}", ln=1)
+
+    # Notes
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, "Notes:", ln=1)
+    pdf.set_font("Helvetica", "", 12)
+    # Wrap notes
+    if notes.strip():
+        for line in notes.splitlines():
+            pdf.multi_cell(0, 6, line)
     else:
-        # Compute completion % per task
-        summary = {}
-        for t in tasks:
-            if t in week_df.columns:
-                summary[t] = int(100 * week_df[t].astype(bool).mean()) if len(week_df) else 0
+        pdf.set_text_color(120,120,120)
+        pdf.cell(0, 6, "—", ln=1)
+        pdf.set_text_color(31,41,55)
 
-        # Display table
-        disp = week_df[["date"] + tasks].sort_values("date").fillna(False)
-        disp = disp.rename(columns={"date": "Date"})
-        disp["Date"] = disp["Date"].astype(str)
-        st.dataframe(disp, use_container_width=True)
+    # Summary footer
+    pdf.ln(6)
+    done_count = sum(1 for v in checks.values() if v)
+    total = max(1, len(checks))
+    pct = int(done_count * 100 / total)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, f"Completion: {done_count}/{total} tasks • {pct}%", ln=1)
 
-        st.markdown("**Completion this week:** " + " · ".join([f"{t}: {p}%" for t, p in summary.items()]))
+    return pdf.output(dest="S").encode("latin1")
 
-        # Streaks for key habits
-        def calc_streak(df, task):
-            # Count consecutive days up to 'ref' where task = True
-            consecutive = 0
-            d = ref
-            while True:
-                row = df[df["date"] == d]
-                if not row.empty and task in row.columns and bool(row[task].iloc[0]):
-                    consecutive += 1
-                    d = d - timedelta(days=1)
-                else:
-                    break
-            return consecutive
-
-        key1, key2 = "Stretching", "German Lessons"
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if key1 in tasks:
-                st.metric(f"🔥 {key1} streak", f"{calc_streak(df, key1)} days")
-        with c2:
-            if key2 in tasks:
-                st.metric(f"🔥 {key2} streak", f"{calc_streak(df, key2)} days")
-        with c3:
-            st.metric("Logged days (this week)", f"{len(week_df)} / 7")
-
-else:
-    st.info("No data yet — check a few boxes and Save today.")
-
-# ---------- Data export ----------
-st.markdown("---")
-st.subheader("⬇️ Export / Backup")
-st.write("Your data is stored locally in **progress.csv**. Keep backups as needed.")
-if st.button("Export CSV"):
-    if not df.empty:
-        st.download_button("Download progress.csv", data=df.to_csv(index=False), file_name="progress.csv", mime="text/csv")
+st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
+st.subheader("Export")
+if st.button("📄 Generate PDF"):
+    if not chosen_tasks:
+        st.warning("Select at least one task.")
     else:
-        st.warning("Nothing to export yet.")
+        pdf_bytes = generate_pdf(selected_date, checks, notes)
+        st.download_button("Download Daily Log (PDF)", data=pdf_bytes, file_name=f"OMEC_Daily_Log_{selected_date.isoformat()}.pdf", mime="application/pdf")
+        st.success("PDF ready. Save it wherever you want. No data was stored.")
+st.markdown("</div>", unsafe_allow_html=True)
+
+st.caption("Tip: Keep your PDFs in a folder per month (e.g., OMEC/Habits/2025-08).")

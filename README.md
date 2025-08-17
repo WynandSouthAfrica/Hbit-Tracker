@@ -1,26 +1,25 @@
 
-# Daily Habit Tracker — v0.1
+# OMEC Habit Tracker — v0.2 (PDF only)
 
-A super-simple Streamlit app to **tick off daily habits** and track weekly progress & streaks.
+A clean, OMEC-styled Streamlit app to tick daily habits and export a neat PDF.
+No database. No CSV. You own the file.
 
-## ✅ Features
-- Log daily tasks: Stretching, German Lessons, OMEC Designs, Paint Bathroom
-- Add notes per day
-- Weekly summary table + completion %
-- Streak counters for **Stretching** and **German**
-- Data saved locally in `progress.csv`
+## Features
+- OMEC visual theme
+- Choose your tracked tasks
+- Tick off a day and add notes
+- Generate a **PDF** as your official record (nothing stored in the app)
 
-## ▶️ How to Run
-1. Install Python 3.10+
-2. In a terminal:
-   ```bash
-   pip install streamlit pandas
-   streamlit run app.py
-   ```
+## Run
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-## 🧱 Roadmap (ideas to add next)
-- Add **time windows** and compare to your Google Calendar schedule
-- Add **charts** for monthly progress
-- Add **custom tasks** and reordering
-- Export to **PDF** weekly report for supervisors / self-review
-- **Mobile-friendly** tweaks for faster on-the-go logging
+## Requirements
+- Python 3.10+
+
+## Roadmap
+- Weekly PDF summary across 7 days
+- Custom themes + logo placement
+- One-tap mobile UI mode

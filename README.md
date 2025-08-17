@@ -1,8 +1,8 @@
-# OMEC Habit Tracker — v0.5 (PDF only)
+# OMEC Habit Tracker — v0.5.1 (PDF only)
 
-- Version bump to **v0.5**
-- Same stable features as v0.4.1 (Task Manager, quick actions, timestamped PDF, OMEC logo, ASCII-safe)
-- Simple, robust: no JSON, no storage
+**Fix**
+- With `fpdf2`, `pdf.output(dest="S")` already returns **bytes**. Removed the extra `.encode("latin-1")` to fix the AttributeError.
+- Keeps v0.5 features: Task Manager, quick actions, timestamped PDF, OMEC logo, ASCII-safe text.
 
 ## Run
 ```bash

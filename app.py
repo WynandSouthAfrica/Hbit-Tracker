@@ -3,7 +3,7 @@ import streamlit as st
 from fpdf import FPDF
 from datetime import date, datetime
 
-APP_TITLE = "OMEC Habit Tracker - v0.5.1 (PDF only)"
+APP_TITLE = "OMEC Habit Tracker - v0.5.2 (PDF only)"
 DEFAULT_TASKS = ["Stretching", "German Lessons", "OMEC Designs", "Paint Bathroom"]
 
 st.set_page_config(page_title=APP_TITLE, layout="centered")
@@ -50,7 +50,7 @@ if "checks" not in st.session_state:
     st.session_state.checks = {}
 
 # Header
-st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.5.1 - PDF export - No data stored</div></div>", unsafe_allow_html=True)
+st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.5.2 - PDF export - No data stored</div></div>", unsafe_allow_html=True)
 st.write("")
 
 # Task Manager
@@ -130,7 +130,7 @@ class HabitPDF(FPDF):
         self.set_xy(42, 8)
         self.set_font("Helvetica", "B", 14)
         self.set_text_color(31,41,55)
-        self.cell(0, 8, "OMEC Habit Tracker - v0.5.1", 0, 1, "L")
+        self.cell(0, 8, "OMEC Habit Tracker - v0.5.2", 0, 1, "L")
         self.set_draw_color(14,165,161)
         self.set_line_width(0.8)
         self.line(10, 18, 200, 18)
@@ -146,6 +146,14 @@ def sanitize_ascii(text: str) -> str:
     for k,v in replacements.items():
         text = text.replace(k,v)
     return text.encode("latin-1","ignore").decode("latin-1")
+
+def pdf_bytes_compat(pdf_obj: FPDF):
+    """Return bytes for download_button across both fpdf and fpdf2."""
+    data = pdf_obj.output(dest="S")
+    # fpdf classic -> str; fpdf2 -> bytes/bytearray
+    if isinstance(data, str):
+        return data.encode("latin-1", "ignore")
+    return bytes(data)
 
 def generate_pdf(d: date, checks: dict, notes: str) -> bytes:
     pdf = HabitPDF()
@@ -179,9 +187,7 @@ def generate_pdf(d: date, checks: dict, notes: str) -> bytes:
     pct = int(done_count * 100 / total) if total > 0 else 0
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 8, sanitize_ascii(f"Completion: {done_count}/{total} tasks - {pct}%"), ln=1)
-
-    # fpdf2 already returns bytes for dest="S"
-    return pdf.output(dest="S")
+    return pdf_bytes_compat(pdf)
 
 st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
 st.subheader("Export")

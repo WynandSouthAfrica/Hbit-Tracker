@@ -1,8 +1,10 @@
-# OMEC Habit Tracker — v0.5.1 (PDF only)
+# OMEC Habit Tracker — v0.5.2 (PDF only)
 
 **Fix**
-- With `fpdf2`, `pdf.output(dest="S")` already returns **bytes**. Removed the extra `.encode("latin-1")` to fix the AttributeError.
-- Keeps v0.5 features: Task Manager, quick actions, timestamped PDF, OMEC logo, ASCII-safe text.
+- Robust PDF bytes handling across both `fpdf` and `fpdf2`. We now coerce the output to true `bytes`, regardless of whether it starts as `str`, `bytes`, or `bytearray`.
+
+**Features (unchanged)**
+- Task Manager, quick actions, timestamped PDF, OMEC logo, ASCII-safe text.
 
 ## Run
 ```bash

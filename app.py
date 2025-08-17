@@ -1,11 +1,12 @@
 
 import streamlit as st
 from fpdf import FPDF
-from datetime import date
+from datetime import date, datetime
 
-APP_TITLE = "OMEC Habit Tracker - v0.3.1 (PDF only)"
+APP_TITLE = "OMEC Habit Tracker - v0.4 (PDF only)"
 DEFAULT_TASKS = ["Stretching", "German Lessons", "OMEC Designs", "Paint Bathroom"]
 
+# ---------------- UI THEME ----------------
 st.set_page_config(page_title=APP_TITLE, layout="centered")
 
 OMEC_PRIMARY = "#0EA5A1"
@@ -43,19 +44,24 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------- State ----------------
 if "tasks" not in st.session_state:
     st.session_state.tasks = DEFAULT_TASKS.copy()
+if "checks" not in st.session_state:
+    st.session_state.checks = {}
 
-st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.3.1 - PDF export - No data stored</div></div>", unsafe_allow_html=True)
+# ---------------- Header ----------------
+st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.4 - PDF export - No data stored</div></div>", unsafe_allow_html=True)
 st.write("")
 
+# ---------------- Task Manager ----------------
 with st.container():
     st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
     st.subheader("Task Manager")
-    st.caption("Add or edit your tasks here. This app doesn't store anything; your PDF is your record.")
+    st.caption("Add or edit your tasks here. No autosave; your PDF is your record.")
 
     raw_tasks = st.text_area("Tasks (one per line)", value="\n".join(st.session_state.tasks), height=160)
-    colA, colB = st.columns([3,1])
+    colA, colB, colC = st.columns([3,1,1])
     with colA:
         new_task = st.text_input("Quick add")
     with colB:
@@ -67,11 +73,14 @@ with st.container():
                 raw_tasks = "\n".join(lines)
                 st.success(f"Added: {t}")
                 st.experimental_rerun()
-    if st.button("Apply edits"):
-        st.session_state.tasks = [x.strip() for x in raw_tasks.splitlines() if x.strip()]
-        st.success("Tasks updated.")
+    with colC:
+        if st.button("Apply edits"):
+            st.session_state.tasks = [x.strip() for x in raw_tasks.splitlines() if x.strip()]
+            st.session_state.checks = {}  # reset stored checks to avoid key drift
+            st.success("Tasks updated.")
     st.markdown("</div>", unsafe_allow_html=True)
 
+# ---------------- Daily Check-in ----------------
 with st.container():
     st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
     st.subheader("Daily Check-in")
@@ -81,18 +90,39 @@ with st.container():
     with col2:
         st.markdown("<span class='omec-pill'>No autosave</span><span class='omec-pill'>Export to PDF</span>", unsafe_allow_html=True)
 
+    # Controls row
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if st.button("Mark all done"):
+            for i, task in enumerate(st.session_state.tasks):
+                st.session_state.checks[f"chk_{i}"] = True
+            st.experimental_rerun()
+    with c2:
+        if st.button("Clear all"):
+            st.session_state.checks = {}
+            st.experimental_rerun()
+    with c3:
+        if st.button("Reset checks"):
+            st.session_state.checks = {}
+            st.experimental_rerun()
+
+    # Render checkboxes
     checks = {}
     if not st.session_state.tasks:
         st.info("No tasks. Add tasks above to start tracking.")
     else:
         grid_cols = st.columns(2)
         for i, task in enumerate(st.session_state.tasks):
+            key = f"chk_{i}"
+            default_val = st.session_state.checks.get(key, False)
             with grid_cols[i % 2]:
-                checks[task] = st.checkbox(task, value=False, key=f"chk_{i}")
+                val = st.checkbox(task, value=default_val, key=key)
+                checks[task] = bool(val)
 
     notes = st.text_area("Notes (optional)", placeholder="Wins / obstacles / quick notes...")
     st.markdown("</div>", unsafe_allow_html=True)
 
+# ---------------- PDF ----------------
 class HabitPDF(FPDF):
     def header(self):
         try:
@@ -102,7 +132,7 @@ class HabitPDF(FPDF):
         self.set_xy(42, 8)
         self.set_font("Helvetica", "B", 14)
         self.set_text_color(31,41,55)
-        self.cell(0, 8, "OMEC Habit Tracker - v0.3.1", 0, 1, "L")
+        self.cell(0, 8, "OMEC Habit Tracker - v0.4", 0, 1, "L")
         self.set_draw_color(14,165,161)
         self.set_line_width(0.8)
         self.line(10, 18, 200, 18)
@@ -126,7 +156,8 @@ def generate_pdf(d: date, checks: dict, notes: str) -> bytes:
     pdf.set_text_color(31,41,55)
     pdf.set_xy(10, 24)
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, sanitize_ascii(f"Daily Log - {d.isoformat()}"), ln=1)
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    pdf.cell(0, 10, sanitize_ascii(f"Daily Log - {d.isoformat()}  |  Generated {stamp}"), ln=1)
     pdf.set_font("Helvetica", "", 12)
     pdf.ln(2)
     for task, done in checks.items():

@@ -3,10 +3,9 @@ import streamlit as st
 from fpdf import FPDF
 from datetime import date, datetime
 
-APP_TITLE = "OMEC Habit Tracker - v0.4 (PDF only)"
+APP_TITLE = "OMEC Habit Tracker - v0.5 (PDF only)"
 DEFAULT_TASKS = ["Stretching", "German Lessons", "OMEC Designs", "Paint Bathroom"]
 
-# ---------------- UI THEME ----------------
 st.set_page_config(page_title=APP_TITLE, layout="centered")
 
 OMEC_PRIMARY = "#0EA5A1"
@@ -44,17 +43,17 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- State ----------------
+# State
 if "tasks" not in st.session_state:
     st.session_state.tasks = DEFAULT_TASKS.copy()
 if "checks" not in st.session_state:
     st.session_state.checks = {}
 
-# ---------------- Header ----------------
-st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.4 - PDF export - No data stored</div></div>", unsafe_allow_html=True)
+# Header
+st.markdown("<div class='omec-card'><h1 style='margin:0'>OMEC Habit Tracker</h1><div class='small'>v0.5 - PDF export - No data stored</div></div>", unsafe_allow_html=True)
 st.write("")
 
-# ---------------- Task Manager ----------------
+# Task Manager
 with st.container():
     st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
     st.subheader("Task Manager")
@@ -65,22 +64,23 @@ with st.container():
     with colA:
         new_task = st.text_input("Quick add")
     with colB:
-        if st.button("Add"):
+        if st.button("Add", type="primary"):
             t = (new_task or "").strip()
             if t:
                 lines = [x.strip() for x in raw_tasks.splitlines() if x.strip()]
                 lines.append(t)
-                raw_tasks = "\n".join(lines)
+                st.session_state.tasks = lines  # update tasks
                 st.success(f"Added: {t}")
-                st.experimental_rerun()
+                st.rerun()
     with colC:
         if st.button("Apply edits"):
             st.session_state.tasks = [x.strip() for x in raw_tasks.splitlines() if x.strip()]
-            st.session_state.checks = {}  # reset stored checks to avoid key drift
+            st.session_state.checks = {}  # reset checks so keys realign
             st.success("Tasks updated.")
+            st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------- Daily Check-in ----------------
+# Daily Check-in
 with st.container():
     st.markdown("<div class='omec-card'>", unsafe_allow_html=True)
     st.subheader("Daily Check-in")
@@ -90,23 +90,21 @@ with st.container():
     with col2:
         st.markdown("<span class='omec-pill'>No autosave</span><span class='omec-pill'>Export to PDF</span>", unsafe_allow_html=True)
 
-    # Controls row
     c1, c2, c3 = st.columns(3)
     with c1:
         if st.button("Mark all done"):
             for i, task in enumerate(st.session_state.tasks):
                 st.session_state.checks[f"chk_{i}"] = True
-            st.experimental_rerun()
+            st.rerun()
     with c2:
         if st.button("Clear all"):
             st.session_state.checks = {}
-            st.experimental_rerun()
+            st.rerun()
     with c3:
         if st.button("Reset checks"):
             st.session_state.checks = {}
-            st.experimental_rerun()
+            st.rerun()
 
-    # Render checkboxes
     checks = {}
     if not st.session_state.tasks:
         st.info("No tasks. Add tasks above to start tracking.")
@@ -122,7 +120,7 @@ with st.container():
     notes = st.text_area("Notes (optional)", placeholder="Wins / obstacles / quick notes...")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ---------------- PDF ----------------
+# PDF
 class HabitPDF(FPDF):
     def header(self):
         try:
@@ -132,7 +130,7 @@ class HabitPDF(FPDF):
         self.set_xy(42, 8)
         self.set_font("Helvetica", "B", 14)
         self.set_text_color(31,41,55)
-        self.cell(0, 8, "OMEC Habit Tracker - v0.4", 0, 1, "L")
+        self.cell(0, 8, "OMEC Habit Tracker - v0.5", 0, 1, "L")
         self.set_draw_color(14,165,161)
         self.set_line_width(0.8)
         self.line(10, 18, 200, 18)
